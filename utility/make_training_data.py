@@ -18,7 +18,6 @@ def get_training_data():
     :return: A tuple of (ndarray, ndarray).
     The first argument has shape (training examples, width, height, channels)
     The second argument has shape (training_examples, number of classes)
-    Number of classes should be 2.
     """
     data = []
 
@@ -49,3 +48,20 @@ def normalise_data(data):
     """
 
     return (data-127.5)/127.5
+
+
+def get_noise_training_data(training_examples):
+    """
+    Builds training data which is just noise.
+
+    :param training_examples: The number of noise training examples. An integer.
+    :return: A tuple of (ndarray, ndarray).
+    The first argument has shape (training examples, width, height, channels)
+    The second argument has shape (training_examples, number of classes)
+    """
+
+    noise_x = np.random.normal(0, 1, (training_examples, params.WIDTH, params.HEIGHT, params.CHANNELS))
+    noise_y = np.ones((training_examples))
+    noise_y = to_categorical(noise_y, params.CLASS_COUNT)
+
+    return noise_x, noise_y
