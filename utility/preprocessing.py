@@ -3,20 +3,18 @@ Contains functions to process the input data, so that they will be ready for inp
 """
 
 from PIL import Image
+import models.parameters as params
 
 
-def standardise_image_size(path, name, height, width):
+def resize_and_save_image(name):
     """
     Iterates over all the images in the images/ directory, and resizes them to a given size.
     The resulting images are saved to the processed-images directory.
 
-    :param path: The path to the image. A String.
     :param name: The name of the image. A String.
-    :param height: The resulting height in pixels. An integer.
-    :param width: The resulting width in pixels. An integer.
     :return: Nothing.
     """
 
-    img = Image.open(path)
-    img = img.resize((width, height), Image.LANCZOS)
+    img = Image.open("images/" + name)
+    img = img.resize((params.WIDTH, params.HEIGHT), Image.LANCZOS)
     img.save('processed-images/' + name)
