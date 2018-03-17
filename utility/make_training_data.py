@@ -65,3 +65,16 @@ def get_noise_training_data(training_examples):
     noise_y = to_categorical(noise_y, params.CLASS_COUNT)
 
     return noise_x, noise_y
+
+
+def shuffle_datasets(x, y):
+    """
+    Shuffles the provided training datasets and labels together, along the first axis
+
+    :param x: A numpy ndarray holding the feature data.
+    :param y: A numpy ndarray holding the class values.
+    :return: A tuple of numpy ndarrays, with the same dimension as the input ndarrays.
+    """
+
+    permutation = np.random.permutation(y.shape[0])
+    return x[permutation], y[permutation]
