@@ -32,9 +32,7 @@ def get_training_data():
 
     shape = (len(data), params.WIDTH, params.HEIGHT, 3)
     data = np.reshape(data, newshape=shape)
-
     y_vals = np.zeros(len(data))
-    y_vals = to_categorical(y_vals, params.CLASS_COUNT)
 
     return normalise_data(data), y_vals
 
@@ -61,8 +59,7 @@ def get_noise_training_data(training_examples):
     """
 
     noise_x = np.random.normal(0, 1, (training_examples, params.WIDTH, params.HEIGHT, params.CHANNELS))
-    noise_y = np.ones((training_examples))
-    noise_y = to_categorical(noise_y, params.CLASS_COUNT)
+    noise_y = np.ones(training_examples)
 
     return noise_x, noise_y
 
