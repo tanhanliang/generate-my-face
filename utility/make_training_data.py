@@ -6,6 +6,7 @@ import models.parameters as params
 import numpy as np
 import scipy.misc
 import os
+from keras.utils import to_categorical
 
 
 def get_training_data():
@@ -14,7 +15,10 @@ def get_training_data():
     each image in the folder, it will be resized, then
     the input tensor will be built from this.
 
-    :return: A NumPy ndarray with dimensions (training examples, height, width, 3)
+    :return: A tuple of (ndarray, ndarray).
+    The first argument has shape (training examples, width, height, channels)
+    The second argument has shape (training_examples, number of classes)
+    Number of classes should be 2.
     """
     data = []
 
@@ -28,4 +32,9 @@ def get_training_data():
             data.append(img)
 
     shape = (len(data), params.WIDTH, params.HEIGHT, 3)
-    return np.reshape(data, newshape=shape)
+    data = np.reshape(data, newshape=shape)
+
+    y_vals = np.zeros(len(data))
+    y_vals = to_categorical(y_vals, params.CLASS_COUNT)
+
+    return data, y_vals
