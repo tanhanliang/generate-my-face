@@ -37,4 +37,15 @@ def get_training_data():
     y_vals = np.zeros(len(data))
     y_vals = to_categorical(y_vals, params.CLASS_COUNT)
 
-    return data, y_vals
+    return normalise_data(data), y_vals
+
+
+def normalise_data(data):
+    """
+    Normalises the data to the range -1, 1. RGB values are in the range 0 to 256.
+
+    :param data: A numpy ndarray
+    :return: A numpy ndarray with same dimensions as the input
+    """
+
+    return (data-127.5)/127.5
