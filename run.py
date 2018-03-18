@@ -12,25 +12,19 @@ import keras.optimizers as opt
 from PIL import Image
 
 
-def train(epochs, save_interval):
+def build_gan():
     """
-    Runs the GAN.
+    Builds the models used in the GAN.
 
-    :param epochs: Number of 'back and forth' iterations of training the discriminator,
-    then training the generator.
-    :param save_interval: The interval at which we save images.
-    :return: Nothing.
+    :return: a tuple of 3 keras Models
     """
-
-    x, y = make.get_training_data()
 
     # Build the models
     discriminator = models.build_discriminator()
-    # discriminator.trainable = False
     optimiser = opt.adam(lr=0.002)
     discriminator.compile(loss='binary_crossentropy',
-                  optimizer=optimiser,
-                  metrics=['accuracy'])
+                          optimizer=optimiser,
+                          metrics=['accuracy'])
     generator = models.build_generator()
     discriminator.trainable = False
 
@@ -45,6 +39,23 @@ def train(epochs, save_interval):
     combined_model.compile(loss='binary_crossentropy',
                            optimizer=optimiser,
                            metrics=['accuracy'])
+    return discriminator, generator, combined_model
+
+
+def train(discriminator, generator, combined_model, epochs, save_interval):
+    """
+    Runs the GAN.
+
+    :param discriminator: A keras Model
+    :param generator:A keras Model
+    :param combined_model:A keras Model
+    :param epochs: Number of 'back and forth' iterations of training the discriminator,
+    then training the generator.
+    :param save_interval: The interval at which we save images.
+    :return: Nothing.
+    """
+
+    x, y = make.get_training_data()
 
     half_batch = int(y.shape[0]/2)
     batch_size = y.shape[0]
@@ -79,8 +90,6 @@ def train(epochs, save_interval):
 
         if epoch % save_interval == 0:
             save_image(generator, epoch)
-
-
 
 
 def save_image(generator, epoch):
