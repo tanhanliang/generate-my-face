@@ -8,24 +8,26 @@ import scipy.misc
 import os
 
 
-def get_training_data():
+def get_training_data(folder, extension):
     """
     Processes all files in the folder specified by path with the .jpg extension. For
     each image in the folder, it will be resized, then
     the input tensor will be built from this.
 
+    :param folder: The folder to look in.
+    :param extension: The file extension of the files to find.
     :return: A tuple of (ndarray, ndarray).
     The first argument has shape (training examples, width, height, channels)
     The second argument has shape (training_examples, number of classes)
     """
     data = []
 
-    for filename in os.listdir("images/"):
-        if filename.endswith(".jpg"):
-            pre.resize_and_save_image(filename)
+    for filename in os.listdir(folder):
+        if filename.endswith(extension):
+            pre.resize_and_save_image(filename, folder)
 
     for filename in os.listdir("processed-images/"):
-        if filename.endswith(".jpg"):
+        if filename.endswith(extension):
             img = scipy.misc.imread('processed-images/' + filename, flatten=False, mode='RGB')
             data.append(img)
 
