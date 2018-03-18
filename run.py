@@ -21,10 +21,6 @@ def build_gan():
 
     # Build the models
     discriminator = models.build_discriminator()
-    optimiser = opt.adam(lr=0.002)
-    discriminator.compile(loss='binary_crossentropy',
-                          optimizer=optimiser,
-                          metrics=['accuracy'])
     generator = models.build_generator()
     discriminator.trainable = False
 
@@ -55,21 +51,21 @@ def train(discriminator, generator, combined_model, epochs, save_interval):
     :return: Nothing.
     """
 
-    x, y = make.get_training_data()
+    x, y = make.get_training_data("images/", ".jpg")
 
-    half_batch = int(y.shape[0]/2)
-    batch_size = half_batch*2
+    d_batch_size = int(y.shape[0]/2)
+    batch_size = d_batch_size*2
 
     for epoch in range(epochs):
         # To reduce the change of overfitting, get random images
-        indices = np.random.randint(0, y.shape[0], half_batch)
+        indices = np.random.randint(0, y.shape[0], d_batch_size)
         real_images = x[indices]
 
         # Get the training data
-        noise = np.random.normal(0, 1, (half_batch,) + params.NOISE_SHAPE)
+        noise = np.random.normal(0, 1, (d_batch_size,) + params.NOISE_SHAPE)
         generated_images = generator.predict(noise)
         test_x = np.concatenate((real_images, generated_images))
-        test_y = np.concatenate((np.ones(half_batch), np.zeros(half_batch)))
+        test_y = np.concatenate((np.ones(d_batch_size), np.zeros(d_batch_size)))
         test_x, test_y = make.shuffle_datasets(test_x, test_y)
 
         # Train the discriminator, then the generator
@@ -81,7 +77,7 @@ def train(discriminator, generator, combined_model, epochs, save_interval):
         print("Epoch " + str(epoch) + " Training Generator")
         combined_model.fit(noise, np.ones(batch_size), batch_size, 1)
 
-        if epoch % save_interval == 0 or epoch >= 100:
+        if epoch % save_interval == 0:
             save_image(generator, epoch)
 
 
