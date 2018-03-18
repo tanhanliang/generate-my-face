@@ -9,6 +9,7 @@ import models.parameters as params
 from keras.layers import Input
 from keras.models import Model
 import keras.optimizers as opt
+from PIL import Image
 
 
 def train(epochs, save_interval):
@@ -57,3 +58,22 @@ def train(epochs, save_interval):
 
         print("Epoch %d [D_Loss_Real: %f Acc_Real: %f ] [D_Loss_Fake: %f Acc_Fake: %f] [Combined_Loss: %f]"
               % (epoch, discrim_loss_r[0], discrim_loss_r[1], discrim_loss_g[0], discrim_loss_g[1], comb_loss))
+
+        if epoch % save_interval == 0:
+            save_image(generator, epoch)
+
+
+def save_image(generator, epoch):
+    """
+    Feeds some noise input to the generator, then saves the resulting output as an image.
+
+    :param generator: A keras Model
+    :param epoch: An integer
+    :return: Nothing
+    """
+
+    noise = np.random.normal(0, 1, params.NOISE_SHAPE)
+    gen_img = generator.predict(noise)
+    img = Image.fromarray(gen_img, "RGB")
+    img_name = "outputs/save_" + str(epoch) + ".png"
+    img.save(img_name)
