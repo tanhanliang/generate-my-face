@@ -78,8 +78,8 @@ def train(discriminator, generator, combined_model, epochs, save_interval):
         combined_model.fit(noise, targets, batch_size, 1, verbose=0)
         c_metrics = combined_model.evaluate(noise, targets, verbose=0)
 
-        print("Discriminator [Loss: %f Acc: %f] Generator [Loss: %f Acc %f]" %
-              (d_metrics[0], d_metrics[1], c_metrics[0], c_metrics[1]))
+        print("Epoch: %d Discriminator [Loss: %f Acc: %f] Generator [Loss: %f Acc %f]" %
+              (epoch, d_metrics[0], d_metrics[1], c_metrics[0], c_metrics[1]))
 
         if epoch % save_interval == 0:
             save_image(generator, epoch)
