@@ -53,8 +53,9 @@ def train(discriminator, generator, combined_model, epochs, save_interval):
 
     x, y = make.get_training_data("images/", ".jpg")
 
-    d_batch_size = int(y.shape[0]/2)
-    batch_size = d_batch_size*2
+    train_diff_factor = 2
+    d_batch_size = int(y.shape[0]/train_diff_factor)
+    batch_size = d_batch_size*2*train_diff_factor
 
     for epoch in range(epochs):
         # To reduce the change of overfitting, get random images
@@ -69,13 +70,16 @@ def train(discriminator, generator, combined_model, epochs, save_interval):
         test_x, test_y = make.shuffle_datasets(test_x, test_y)
 
         # Train the discriminator, then the generator
+        discriminator.fit(test_x, test_y, batch_size, 1, verbose=0)
+        d_metrics = discriminator.evaluate(test_x, test_y, verbose=0)
+
         noise = np.random.normal(0, 1, (batch_size,) + params.NOISE_SHAPE)
+        targets = np.ones(batch_size)
+        combined_model.fit(noise, targets, batch_size, 1, verbose=0)
+        c_metrics = combined_model.evaluate(noise, targets, verbose=0)
 
-        print("Epoch " + str(epoch) + " Training Discriminator")
-        discriminator.fit(test_x, test_y, batch_size, 1)
-
-        print("Epoch " + str(epoch) + " Training Generator")
-        combined_model.fit(noise, np.ones(batch_size), batch_size, 1)
+        print("Discriminator [Loss: %f Acc: %f] Generator [Loss: %f Acc %f]" %
+              (d_metrics[0], d_metrics[1], c_metrics[0], c_metrics[1]))
 
         if epoch % save_interval == 0:
             save_image(generator, epoch)
