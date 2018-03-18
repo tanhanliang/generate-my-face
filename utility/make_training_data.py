@@ -6,7 +6,6 @@ import models.parameters as params
 import numpy as np
 import scipy.misc
 import os
-from keras.utils import to_categorical
 
 
 def get_training_data():
