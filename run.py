@@ -67,7 +67,6 @@ def train(discriminator, generator, combined_model, epochs, save_interval):
 
         # Train the discriminator first
         noise = np.random.normal(0, 1, (half_batch,) + params.NOISE_SHAPE)
-        # noise = np.ones((half_batch,) + params.NOISE_SHAPE)
         generated_images = generator.predict(noise)
         test_x = np.concatenate((real_images, generated_images))
         test_y = np.concatenate((np.ones(half_batch), np.zeros(half_batch)))
@@ -77,7 +76,6 @@ def train(discriminator, generator, combined_model, epochs, save_interval):
         # discrim_loss_g = discriminator.train_on_batch(generated_images, np.zeros((half_batch, 1)))
 
         # Now train the generator
-        # noise = np.ones((batch_size,) + params.NOISE_SHAPE)
         noise = np.random.normal(0, 1, (batch_size,) + params.NOISE_SHAPE)
         # comb_loss = combined_model.train_on_batch(noise, np.ones((batch_size, 1)))
 
@@ -101,11 +99,11 @@ def save_image(generator, epoch):
     :return: Nothing
     """
 
-    noise = np.random.normal(0, 1, params.NOISE_SHAPE)
-    # Since the first dimension of the input is the number of training examples, we have
-    # to reshape it.
-    noise = noise.reshape((1,) + params.NOISE_SHAPE)
+    # The generator model expects a 4-d input, with the first dimension being training examples
+    noise = np.random.normal(0, 1, (1,) + params.NOISE_SHAPE)
     gen_img = generator.predict(noise)
+    gen_img = gen_img*127.5 + 127.5
+    gen_img = gen_img.astype(np.uint8)
 
     # Now we have to reshape the output back to 3 dimensions
     gen_img = gen_img.reshape(params.IMG_SHAPE)
