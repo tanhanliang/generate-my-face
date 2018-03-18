@@ -58,35 +58,30 @@ def train(discriminator, generator, combined_model, epochs, save_interval):
     x, y = make.get_training_data()
 
     half_batch = int(y.shape[0]/2)
-    batch_size = y.shape[0]
+    batch_size = half_batch*2
 
     for epoch in range(epochs):
         # To reduce the change of overfitting, get random images
         indices = np.random.randint(0, y.shape[0], half_batch)
         real_images = x[indices]
 
-        # Train the discriminator first
+        # Get the training data
         noise = np.random.normal(0, 1, (half_batch,) + params.NOISE_SHAPE)
         generated_images = generator.predict(noise)
         test_x = np.concatenate((real_images, generated_images))
         test_y = np.concatenate((np.ones(half_batch), np.zeros(half_batch)))
         test_x, test_y = make.shuffle_datasets(test_x, test_y)
 
-        # discrim_loss_r = discriminator.train_on_batch(real_images, np.ones(half_batch))
-        # discrim_loss_g = discriminator.train_on_batch(generated_images, np.zeros((half_batch, 1)))
-
-        # Now train the generator
+        # Train the discriminator, then the generator
         noise = np.random.normal(0, 1, (batch_size,) + params.NOISE_SHAPE)
-        # comb_loss = combined_model.train_on_batch(noise, np.ones((batch_size, 1)))
 
-        # print("Epoch %d [D_Loss_Real: %f Acc_Real: %f ] [D_Loss_Fake: %f Acc_Fake: %f] [Comb_Loss: %f Acc_Comb: %f]"
-        #       % (epoch, discrim_loss_r[0], discrim_loss_r[1], discrim_loss_g[0], discrim_loss_g[1], comb_loss[0], comb_loss[1]))
         print("Epoch " + str(epoch) + " Training Discriminator")
-        discriminator.fit(test_x, test_y, 50, 1)
-        print("Epoch " + str(epoch) + " Training Generator")
-        combined_model.fit(noise, np.ones(batch_size), 50, 1)
+        discriminator.fit(test_x, test_y, batch_size, 1)
 
-        if epoch % save_interval == 0:
+        print("Epoch " + str(epoch) + " Training Generator")
+        combined_model.fit(noise, np.ones(batch_size), batch_size, 1)
+
+        if epoch % save_interval == 0 or epoch >= 100:
             save_image(generator, epoch)
 
 
@@ -110,3 +105,12 @@ def save_image(generator, epoch):
     img = Image.fromarray(gen_img, "RGB")
     img_name = "outputs/save_" + str(epoch) + ".png"
     img.save(img_name)
+
+
+def main():
+    d, g, c = build_gan()
+    train(d, g, c, 20000, 50)
+
+
+if __name__ == "__main__":
+    main()
