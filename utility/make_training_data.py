@@ -24,12 +24,8 @@ def get_training_data(folder, extension):
 
     for filename in os.listdir(folder):
         if filename.endswith(extension):
-            pre.resize_and_save_image(filename, folder)
-
-    for filename in os.listdir("processed-images/"):
-        if filename.endswith(extension):
-            img = scipy.misc.imread('processed-images/' + filename, flatten=False, mode='RGB')
-            data.append(img)
+            img = pre.resize_image(filename, folder)
+            data.append(np.array(img))
 
     shape = (len(data), params.WIDTH, params.HEIGHT, 3)
     data = np.reshape(data, newshape=shape)

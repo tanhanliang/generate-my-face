@@ -6,7 +6,7 @@ from PIL import Image
 import models.parameters as params
 
 
-def resize_and_save_image(name, folder):
+def resize_image(name, folder):
     """
     Iterates over all the images in the images/ directory, and resizes them to a given size.
     The resulting images are saved to the processed-images directory.
@@ -18,4 +18,4 @@ def resize_and_save_image(name, folder):
 
     img = Image.open(folder + name)
     img = img.resize((params.WIDTH, params.HEIGHT), Image.LANCZOS)
-    img.save('processed-images/' + name)
+    return img
