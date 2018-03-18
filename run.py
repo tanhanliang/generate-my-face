@@ -24,14 +24,22 @@ def train(epochs, save_interval):
 
     x, y = make.get_training_data()
 
+    # Build the models
     discriminator = models.build_discriminator()
-    discriminator.trainable = False
+    # discriminator.trainable = False
+    optimiser = opt.adam(lr=0.002)
+    discriminator.compile(loss='binary_crossentropy',
+                  optimizer=optimiser,
+                  metrics=['accuracy'])
     generator = models.build_generator()
+    discriminator.trainable = False
 
+    # Connect the generator to the discriminator
     gan_input = Input(shape=params.NOISE_SHAPE)
     generated_img = generator(gan_input)
     discrim_out = discriminator(generated_img)
 
+    # Build and compile the full GAN
     combined_model = Model(gan_input, discrim_out)
     optimiser = opt.adam(lr=0.002)
     combined_model.compile(loss='binary_crossentropy',
@@ -48,19 +56,31 @@ def train(epochs, save_interval):
 
         # Train the discriminator first
         noise = np.random.normal(0, 1, (half_batch,) + params.NOISE_SHAPE)
+        # noise = np.ones((half_batch,) + params.NOISE_SHAPE)
         generated_images = generator.predict(noise)
-        discrim_loss_r = discriminator.train_on_batch(real_images, np.ones(half_batch, 1))
-        discrim_loss_g = discriminator.train_on_batch(generated_images, np.zeros((half_batch, 1)))
+        test_x = np.concatenate((real_images, generated_images))
+        test_y = np.concatenate((np.ones(half_batch), np.zeros(half_batch)))
+        test_x, test_y = make.shuffle_datasets(test_x, test_y)
+
+        # discrim_loss_r = discriminator.train_on_batch(real_images, np.ones(half_batch))
+        # discrim_loss_g = discriminator.train_on_batch(generated_images, np.zeros((half_batch, 1)))
 
         # Now train the generator
+        # noise = np.ones((batch_size,) + params.NOISE_SHAPE)
         noise = np.random.normal(0, 1, (batch_size,) + params.NOISE_SHAPE)
-        comb_loss = combined_model.train_on_batch(noise, np.ones(batch_size, 1))
+        # comb_loss = combined_model.train_on_batch(noise, np.ones((batch_size, 1)))
 
-        print("Epoch %d [D_Loss_Real: %f Acc_Real: %f ] [D_Loss_Fake: %f Acc_Fake: %f] [Combined_Loss: %f]"
-              % (epoch, discrim_loss_r[0], discrim_loss_r[1], discrim_loss_g[0], discrim_loss_g[1], comb_loss))
+        # print("Epoch %d [D_Loss_Real: %f Acc_Real: %f ] [D_Loss_Fake: %f Acc_Fake: %f] [Comb_Loss: %f Acc_Comb: %f]"
+        #       % (epoch, discrim_loss_r[0], discrim_loss_r[1], discrim_loss_g[0], discrim_loss_g[1], comb_loss[0], comb_loss[1]))
+        print("Epoch " + str(epoch) + " Training Discriminator")
+        discriminator.fit(test_x, test_y, 50, 1)
+        print("Epoch " + str(epoch) + " Training Generator")
+        combined_model.fit(noise, np.ones(batch_size), 50, 1)
 
         if epoch % save_interval == 0:
             save_image(generator, epoch)
+
+
 
 
 def save_image(generator, epoch):
@@ -73,7 +93,13 @@ def save_image(generator, epoch):
     """
 
     noise = np.random.normal(0, 1, params.NOISE_SHAPE)
+    # Since the first dimension of the input is the number of training examples, we have
+    # to reshape it.
+    noise = noise.reshape((1,) + params.NOISE_SHAPE)
     gen_img = generator.predict(noise)
+
+    # Now we have to reshape the output back to 3 dimensions
+    gen_img = gen_img.reshape(params.IMG_SHAPE)
     img = Image.fromarray(gen_img, "RGB")
     img_name = "outputs/save_" + str(epoch) + ".png"
     img.save(img_name)
