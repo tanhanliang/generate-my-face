@@ -53,7 +53,7 @@ def train(discriminator, generator, combined_model, epochs, save_interval):
 
     x, y = make.get_training_data("images/", ".jpg")
 
-    train_diff_factor = 2
+    train_diff_factor = 10
     d_batch_size = int(y.shape[0]/train_diff_factor)
     batch_size = d_batch_size*2*train_diff_factor
 
