@@ -35,9 +35,6 @@ Then open 'run.py' and:
 with the correct image type)
 2) Edit the `main()` function to set how many training epochs you want and how often
 you want a generated image to be saved. (The most number of epochs I've run it
-for is 2000, and there generally was no improvement after about 500 epochs or so.
-Yeah the current GAN that I've got here is sh*t...Or to be diplomatic, in the
- style of what you say during an interview, "Training a GAN
-is a very challenging and rewarding task")
+for is 2000, and there generally was no improvement after about 500 epochs or so.)
 
 Then open `models/parameters.py` and set the parameters accordingly.
