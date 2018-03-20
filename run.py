@@ -3,39 +3,13 @@ Runs everything.
 """
 
 import utility.make_training_data as make
-import models.models as models
+import models.gan as models
 import numpy as np
 import models.parameters as params
 from keras.layers import Input
 from keras.models import Model
 import keras.optimizers as opt
 from PIL import Image
-
-
-def build_gan():
-    """
-    Builds the models used in the GAN.
-
-    :return: a tuple of 3 keras Models
-    """
-
-    # Build the models
-    discriminator = models.build_discriminator()
-    generator = models.build_generator()
-    discriminator.trainable = False
-
-    # Connect the generator to the discriminator
-    gan_input = Input(shape=params.NOISE_SHAPE)
-    generated_img = generator(gan_input)
-    discrim_out = discriminator(generated_img)
-
-    # Build and compile the full GAN
-    combined_model = Model(gan_input, discrim_out)
-    optimiser = opt.adam(lr=0.002)
-    combined_model.compile(loss='binary_crossentropy',
-                           optimizer=optimiser,
-                           metrics=['accuracy'])
-    return discriminator, generator, combined_model
 
 
 def train(discriminator, generator, combined_model, epochs, save_interval):

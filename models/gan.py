@@ -6,6 +6,27 @@ import keras.layers as layers
 import keras.optimizers as opt
 import models.parameters as params
 import numpy as np
+from keras.layers import Input
+from keras.models import Model
+
+class GAN():
+    def __init__(self):
+        self.discriminator = build_discriminator()
+        self.generator = build_generator()
+
+        self.discriminator.trainable = False
+
+        # Connect the generator to the discriminator
+        gan_input = Input(shape=params.NOISE_SHAPE)
+        generated_img = self.generator(gan_input)
+        discrim_out = self.discriminator(generated_img)
+
+        # Build and compile the full GAN
+        self.combined_model = Model(gan_input, discrim_out)
+        optimiser = opt.adam(lr=0.002)
+        self.combined_model.compile(loss='binary_crossentropy',
+                               optimizer=optimiser,
+                               metrics=['accuracy'])
 
 
 def build_discriminator():
@@ -43,7 +64,6 @@ def build_discriminator():
                   metrics=['accuracy'])
     return model
 
-
 def build_generator():
     """
     Builds the generator model, which takes as input random noise and attempts to form an
@@ -65,8 +85,8 @@ def build_generator():
     model.add(layers.Dense(np.prod(params.IMG_SHAPE), activation='tanh'))
     model.add(layers.Reshape(params.IMG_SHAPE))
 
-    optimiser = opt.adam(lr=0.002)
-    model.compile(loss='binary_crossentropy',
-                  optimizer=optimiser,
-                  metrics=['accuracy'])
+    # optimiser = opt.adam(lr=0.002)
+    # model.compile(loss='binary_crossentropy',
+    #               optimizer=optimiser,
+    #               metrics=['accuracy'])
     return model
