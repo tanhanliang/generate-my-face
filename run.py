@@ -6,19 +6,14 @@ import utility.make_training_data as make
 import models.gan as models
 import numpy as np
 import models.parameters as params
-from keras.layers import Input
-from keras.models import Model
-import keras.optimizers as opt
 from PIL import Image
 
 
-def train(discriminator, generator, combined_model, epochs, save_interval):
+def train(gan, epochs, save_interval):
     """
     Runs the GAN.
 
-    :param discriminator: A keras Model
-    :param generator:A keras Model
-    :param combined_model:A keras Model
+    :param gan: A GAN object
     :param epochs: Number of 'back and forth' iterations of training the discriminator,
     then training the generator.
     :param save_interval: The interval at which we save images.
@@ -27,36 +22,25 @@ def train(discriminator, generator, combined_model, epochs, save_interval):
 
     x, y = make.get_training_data("images/", ".jpg")
 
-    train_diff_factor = 10
-    d_batch_size = int(y.shape[0]/train_diff_factor)
-    batch_size = d_batch_size*2*train_diff_factor
+    batch_size = int(y.shape[0])
+    half_batch = batch_size*2
 
     for epoch in range(epochs):
         # To reduce the change of overfitting, get random images
-        indices = np.random.randint(0, y.shape[0], d_batch_size)
+        indices = np.random.randint(0, y.shape[0], half_batch)
         real_images = x[indices]
 
-        # Get the training data
-        noise = np.random.normal(0, 1, (d_batch_size,) + params.NOISE_SHAPE)
-        generated_images = generator.predict(noise)
-        test_x = np.concatenate((real_images, generated_images))
-        test_y = np.concatenate((np.ones(d_batch_size), np.zeros(d_batch_size)))
-        test_x, test_y = make.shuffle_datasets(test_x, test_y)
-
         # Train the discriminator, then the generator
-        discriminator.fit(test_x, test_y, batch_size, 1, verbose=0)
-        d_metrics = discriminator.evaluate(test_x, test_y, verbose=0)
+        gan.discriminator.fit(real_images, real_images, batch_size, 1, verbose=0)
 
         noise = np.random.normal(0, 1, (batch_size,) + params.NOISE_SHAPE)
-        targets = np.ones(batch_size)
-        combined_model.fit(noise, targets, batch_size, 1, verbose=0)
-        c_metrics = combined_model.evaluate(noise, targets, verbose=0)
-
-        print("Epoch: %d Discriminator [Loss: %f Acc: %f] Generator [Loss: %f Acc %f]" %
-              (epoch, d_metrics[0], d_metrics[1], c_metrics[0], c_metrics[1]))
+        # First generate fake images. Since the discriminator is an autoencoder, the inputs to it
+        # are also its targets.
+        combined_model_targets = gan.generator.predict(noise)
+        gan.combined_model.fit(noise, combined_model_targets, batch_size, 1, verbose=0)
 
         if epoch % save_interval == 0:
-            save_image(generator, epoch)
+            save_image(gan.generator, epoch)
 
 
 def save_image(generator, epoch):
@@ -82,8 +66,8 @@ def save_image(generator, epoch):
 
 
 def main():
-    d, g, c = build_gan()
-    train(d, g, c, 20000, 50)
+    gan = models.GAN(0.001, 0, 0.5, 1)
+    train(gan, 20000, 50)
 
 
 if __name__ == "__main__":
