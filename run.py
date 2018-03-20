@@ -22,22 +22,24 @@ def train(gan, epochs, save_interval):
 
     x, y = make.get_training_data("images/", ".jpg")
 
-    batch_size = int(y.shape[0])
-    half_batch = batch_size*2
+    batch_size = int(y.shape[0]/2)
 
     for epoch in range(epochs):
         # To reduce the change of overfitting, get random images
-        indices = np.random.randint(0, y.shape[0], half_batch)
+        indices = np.random.randint(0, y.shape[0], batch_size)
         real_images = x[indices]
 
         # Train the discriminator, then the generator
         gan.discriminator.fit(real_images, real_images, batch_size, 1, verbose=0)
 
-        noise = np.random.normal(0, 1, (batch_size,) + params.NOISE_SHAPE)
+        noise = np.random.uniform(-1, 1, (batch_size,) + params.NOISE_SHAPE)
         # First generate fake images. Since the discriminator is an autoencoder, the inputs to it
         # are also its targets.
         fake_images = gan.generator.predict(noise)
         gan.combined_model.fit(noise, fake_images, batch_size, 1, verbose=0)
+
+        convergence_val = gan.get_convergence_measure(fake_images, real_images)
+        print("Epoch %d: [M_global: %f]" % (epoch, convergence_val))
 
         if epoch % save_interval == 0:
             save_image(gan.generator, epoch)

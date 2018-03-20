@@ -142,6 +142,29 @@ class GAN:
 
         self.k_t = self.k_t + self.lmbda*(self.gamma*discrim_loss - gen_loss)
 
+    def get_convergence_measure(self, fake_images, real_images):
+        """
+        Computes a measure of convergence for the GAN.
+        M_global = discrim_loss + abs(gamma*discrim_loss - gen_loss)
+
+        :param fake_images: Some generated images of hanliang. A 4D ndarray.
+        (training_examples, width, height, channels)
+        :param real_images: Some real images of hanliang. A 4D ndarray.
+        (training_examples, width, height, channels)
+        :return: A float
+        """
+
+        reconstr_fake_imgs = self.discriminator.predict(fake_images)
+        reconstr_real_imgs = self.discriminator.predict(real_images)
+
+        gen_loss_per_pix = (fake_images - reconstr_fake_imgs).__abs__().__pow__(self.norm)
+        discrim_loss_per_pix = (real_images - reconstr_real_imgs).__abs__().__pow__(self.norm)
+
+        gen_loss = gen_loss_per_pix.sum()
+        discrim_loss = discrim_loss_per_pix.sum()
+
+        return discrim_loss + abs(self.gamma*discrim_loss - gen_loss)
+
 
 def build_autoencoder():
     """
