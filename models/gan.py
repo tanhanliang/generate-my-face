@@ -29,7 +29,7 @@ class GAN:
 
         self.discriminator = build_autoencoder()
         optimiser = opt.adam(lr=0.002)
-        self.discriminator.compile(loss='binary_crossentropy',
+        self.discriminator.compile(loss=self.discriminator_loss,
                                    optimizer=optimiser,
                                    metrics=['accuracy'])
         self.discriminator.trainable = False
@@ -44,7 +44,7 @@ class GAN:
         # Build and compile the full GAN
         self.combined_model = Model(gan_input, discrim_out)
         optimiser = opt.adam(lr=0.002)
-        self.combined_model.compile(loss='binary_crossentropy',
+        self.combined_model.compile(loss=self.generator_loss,
                                     optimizer=optimiser,
                                     metrics=['accuracy'])
 
