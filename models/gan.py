@@ -31,7 +31,7 @@ class GAN():
 
 def build_discriminator():
     """
-    Builds the model which classifies an image as a picture of han liang or not.
+    Builds an autoencoder which attempts to learn common features in pictures of hanliang.
 
     :return: A keras Model
     """
@@ -45,24 +45,64 @@ def build_discriminator():
     # model.add(layers.Dense(64, activation="relu"))
     # model.add(layers.Dense(64, activation="relu"))
     # model.add(layers.Dense(1, activation="sigmoid"))
+    padding_size = (1, 1)
+    kernel_size = (3, 3)
+
     model = models.Sequential()
-    # model.add(layers.Flatten(input_shape=params.IMG_SHAPE))
-    # model.add(layers.Dense(32))
-    model.add(layers.Convolution2D(8, (5, 5), activation="relu", input_shape=params.IMG_SHAPE))
-    model.add(layers.MaxPooling2D(pool_size=(5, 5)))
-    model.add(layers.LeakyReLU(alpha=0.2))
-    model.add(layers.Flatten())
-    model.add(layers.Dropout(0.6))
-    model.add(layers.Dense(32))
-    model.add(layers.LeakyReLU(alpha=0.2))
-    model.add(layers.Dropout(0.6))
-    model.add(layers.Dense(1, activation='sigmoid'))
+    # Start of encoder
+    # Shape is still the original image shape
+    model.add(layers.ZeroPadding2D(padding=padding_size, input_shape=params.IMG_SHAPE))
+    model.add(layers.Convolution2D(32, kernel_size, activation="elu"))
+    model.add(layers.ZeroPadding2D(padding=padding_size))
+    model.add(layers.Convolution2D(32, kernel_size, activation="elu"))
+    model.add(layers.ZeroPadding2D(padding=padding_size))
+    model.add(layers.Convolution2D(32, kernel_size, activation="elu"))
+
+    # Shape now has half the width and height of the original
+    model.add(layers.MaxPooling2D(pool_size=(2, 2), strides=(2, 2)))
+    model.add(layers.ZeroPadding2D(padding=padding_size))
+    model.add(layers.Convolution2D(32, kernel_size, activation="elu"))
+    model.add(layers.ZeroPadding2D(padding=padding_size))
+    model.add(layers.Convolution2D(32, kernel_size, activation="elu"))
+
+    # Shape is now a quarter the width and height of the original
+    model.add(layers.MaxPooling2D(pool_size=(2, 2), strides=(2, 2)))
+    model.add(layers.ZeroPadding2D(padding=padding_size))
+    model.add(layers.Convolution2D(32, kernel_size, activation="elu"))
+    model.add(layers.ZeroPadding2D(padding=padding_size))
+    model.add(layers.Convolution2D(32, kernel_size, activation="elu"))
+    model.add(layers.Dense(128))
+
+    # Start of decoder
+    model.add(layers.Dense(128))
+    # Shape is a quarter the width and height of the original
+    model.add(layers.ZeroPadding2D(padding=padding_size))
+    model.add(layers.Convolution2D(32, kernel_size, activation="elu"))
+    model.add(layers.ZeroPadding2D(padding=padding_size))
+    model.add(layers.Convolution2D(32, kernel_size, activation="elu"))
+
+    # Shape is now half the width and height of the original
+    model.add(layers.UpSampling2D(size=(2, 2)))
+    model.add(layers.ZeroPadding2D(padding=padding_size))
+    model.add(layers.Convolution2D(32, kernel_size, activation="elu"))
+    model.add(layers.ZeroPadding2D(padding=padding_size))
+    model.add(layers.Convolution2D(32, kernel_size, activation="elu"))
+
+    # Shape is now the original size
+    model.add(layers.UpSampling2D(size=(2, 2)))
+    model.add(layers.ZeroPadding2D(padding=padding_size))
+    model.add(layers.Convolution2D(32, kernel_size, activation="elu"))
+    model.add(layers.ZeroPadding2D(padding=padding_size))
+    model.add(layers.Convolution2D(32, kernel_size, activation="elu"))
+    model.add(layers.ZeroPadding2D(padding=padding_size))
+    model.add(layers.Convolution2D(3, kernel_size, activation="elu"))
 
     optimiser = opt.adam(lr=0.002)
     model.compile(loss='binary_crossentropy',
                   optimizer=optimiser,
                   metrics=['accuracy'])
     return model
+
 
 def build_generator():
     """
