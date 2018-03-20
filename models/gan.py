@@ -80,7 +80,25 @@ class GAN:
         discrim_loss_per_pix = (y_true - y_pred).__abs__().__pow__(self.norm)
         discrim_loss = discrim_loss_per_pix.sum()
 
-        # The first arg of the shape is the num of training examples, so I have to add 1 to the shape
+        gen_loss = self.generator_loss(0, 0)
+
+        loss = discrim_loss - self.k_t*gen_loss
+        return loss
+
+    def generator_loss(self, y_true, y_pred):
+        """
+        The loss function for the generator. This computes a simple sum of differences
+        between real and reconstructed images.
+
+        Alternative: When training the generator, pass the input noise to y_true also,
+        then use it here. It will obfuscate the code more though...
+
+        :param y_true: The noise passed to the generator. Not used.
+        :param y_pred: The image reconstructed by discriminator. Not used.
+        Keras requires these two arguments... so I've included them.
+        :return: A float
+        """
+
         noise = np.random.uniform(-1, 1, ((1,) + params.IMG_SHAPE))
         gen_fake_img = self.generator.predict(noise)
         reconstr_fake_img = self.discriminator.predict(gen_fake_img)
@@ -88,8 +106,8 @@ class GAN:
         gen_loss_per_pix = (gen_fake_img - reconstr_fake_img).__abs__().__pow__(self.norm)
         gen_loss = gen_loss_per_pix.sum()
 
-        loss = discrim_loss - self.k_t*gen_loss
-        return loss
+        return gen_loss
+
 
 def build_autoencoder():
     """
