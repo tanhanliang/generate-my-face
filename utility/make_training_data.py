@@ -16,9 +16,7 @@ def get_training_data(folder, extension):
 
     :param folder: The folder to look in.
     :param extension: The file extension of the files to find.
-    :return: A tuple of (ndarray, ndarray).
-    The first argument has shape (training examples, width, height, channels)
-    The second argument has shape (training_examples, number of classes)
+    :return: An ndarray
     """
     data = []
 
@@ -29,9 +27,8 @@ def get_training_data(folder, extension):
 
     shape = (len(data), params.WIDTH, params.HEIGHT, 3)
     data = np.reshape(data, newshape=shape)
-    y_vals = np.zeros(len(data))
-
-    return normalise_data(data), y_vals
+    
+    return normalise_data(data)
 
 
 def normalise_data(data):
