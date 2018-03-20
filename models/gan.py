@@ -70,6 +70,9 @@ class GAN:
 
         See the blog post link above for the full details.
 
+        L_D = discrim_loss - k_t*gen_loss
+        L_G = gen_loss
+
         :param y_true: The image passed to the autoencoder
         :param y_pred: The image reconstructed by the autoencoder
         :return: A float
@@ -79,10 +82,10 @@ class GAN:
         # reconstructed. The L1 or L2 norm can be applied here ( ie |x-y| or (x-y)^2 )
         discrim_loss_per_pix = (y_true - y_pred).__abs__().__pow__(self.norm)
         discrim_loss = discrim_loss_per_pix.sum()
-
         gen_loss = self.generator_loss(0, 0)
-
         loss = discrim_loss - self.k_t*gen_loss
+        self.update_kt(discrim_loss, gen_loss)
+
         return loss
 
     def generator_loss(self, y_true, y_pred):
@@ -107,6 +110,37 @@ class GAN:
         gen_loss = gen_loss_per_pix.sum()
 
         return gen_loss
+
+    def update_kt(self, discrim_loss, gen_loss):
+        """
+        Update rule for k_t.
+
+        k_t+1 = k_t + lmbda*(gamma*discrim_loss - gen_loss)
+
+        In a perfect world, gamma*discrim_loss - gen_loss == 0. This represents the stable point,
+        which the adaptive parameter k_t strives to reach. Let me attempt an intuitive explanation
+        to test my understanding of this. To recap, the losses for The discriminator and generator
+        are:
+
+        L_D = discrim_loss - k_t*gen_loss
+        L_G = gen_loss
+
+        If:
+
+        (1) gen_loss << discrim_loss: generator is getting too good at producing fake images, or
+            discriminator is getting lousy at its reconstruction task.
+            k_t increases, incentive for discriminator to get better at its discrimination task
+            increases (incentive for discriminator to increase gen_loss)
+        (2) gen_loss >> discrim_loss: discriminator is getting too good at its encoding task, or
+            generator is too lousy at producing fake images.
+            k_t decreases, causing a penalty on L_D which helps to prevent it from getting lower.
+
+        :param discrim_loss:
+        :param gen_loss:
+        :return: Nothing
+        """
+
+        self.k_t = self.k_t + self.lmbda*(self.gamma*discrim_loss - gen_loss)
 
 
 def build_autoencoder():
