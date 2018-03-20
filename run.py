@@ -36,8 +36,8 @@ def train(gan, epochs, save_interval):
         noise = np.random.normal(0, 1, (batch_size,) + params.NOISE_SHAPE)
         # First generate fake images. Since the discriminator is an autoencoder, the inputs to it
         # are also its targets.
-        combined_model_targets = gan.generator.predict(noise)
-        gan.combined_model.fit(noise, combined_model_targets, batch_size, 1, verbose=0)
+        fake_images = gan.generator.predict(noise)
+        gan.combined_model.fit(noise, fake_images, batch_size, 1, verbose=0)
 
         if epoch % save_interval == 0:
             save_image(gan.generator, epoch)
