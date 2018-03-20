@@ -22,7 +22,8 @@ def train(gan, epochs, save_interval):
 
     x, y = make.get_training_data("images/", ".jpg")
 
-    batch_size = int(y.shape[0]/2)
+    # batch_size = int(y.shape[0]/2)
+    batch_size = 10
 
     for epoch in range(epochs):
         # To reduce the change of overfitting, get random images
