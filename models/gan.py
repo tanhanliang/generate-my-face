@@ -154,14 +154,18 @@ class GAN:
         :return: A float
         """
 
+        num_fake = fake_images.shape[0]
+        num_real = real_images.shape[0]
         reconstr_fake_imgs = self.discriminator.predict(fake_images)
         reconstr_real_imgs = self.discriminator.predict(real_images)
 
+        # losses computed per pixel in every image
         gen_loss_per_pix = (fake_images - reconstr_fake_imgs).__abs__().__pow__(self.norm)
         discrim_loss_per_pix = (real_images - reconstr_real_imgs).__abs__().__pow__(self.norm)
 
-        gen_loss = gen_loss_per_pix.sum()
-        discrim_loss = discrim_loss_per_pix.sum()
+        # Get the average loss per image
+        gen_loss = gen_loss_per_pix.sum()/num_fake
+        discrim_loss = discrim_loss_per_pix.sum()/num_real
 
         return discrim_loss + abs(self.gamma*discrim_loss - gen_loss)
 
