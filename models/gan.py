@@ -88,8 +88,7 @@ class GAN:
         fake_image = fake_image.reshape(params.IMG_SHAPE)
         gen_loss = self.generator_loss(fake_image, reconstr_fake)
 
-        # loss = discrim_loss - self.k_t*gen_loss
-        loss = discrim_loss
+        loss = discrim_loss - self.k_t*gen_loss
         self.update_kt(discrim_loss, gen_loss)
 
         return K.cast(loss, dtype=np.float32)
