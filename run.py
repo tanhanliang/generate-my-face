@@ -7,11 +7,10 @@ import models.gan as models
 import numpy as np
 import models.parameters as params
 from PIL import Image
-import math
-import keras.backend as b
+from utility.troubleshooting import CustomMetrics
 
 
-def train(gan, epochs, save_interval):
+def train(gan, epochs, save_interval, callbacks=None):
     """
     Runs the GAN.
 
@@ -19,6 +18,7 @@ def train(gan, epochs, save_interval):
     :param epochs: Number of 'back and forth' iterations of training the discriminator,
     then training the generator.
     :param save_interval: The interval at which we save images.
+    :param callbacks: A keras callback for troubleshooting
     :return: Nothing.
     """
 
@@ -33,13 +33,13 @@ def train(gan, epochs, save_interval):
         real_images = x[indices]
 
         # Train the discriminator, then the generator
-        gan.discriminator.fit(real_images, real_images, batch_size, 1, verbose=0)
+        gan.discriminator.fit(real_images, real_images, batch_size, 1, verbose=0, callbacks=[callbacks])
 
         noise = np.random.uniform(-1, 1, (batch_size,) + params.NOISE_SHAPE)
         # First generate fake images. Since the discriminator is an autoencoder, the inputs to it
         # are also its targets.
         fake_images = gan.generator.predict(noise)
-        gan.combined_model.fit(noise, fake_images, batch_size, 1, verbose=0)
+        gan.combined_model.fit(noise, fake_images, batch_size, 1, verbose=0, callbacks=[callbacks])
 
         gan.print_convergence_measures(epoch, fake_images, real_images)
 
@@ -71,7 +71,7 @@ def save_image(generator, epoch):
 
 def main():
     gan = models.GAN(0.001, 0, 0.5, 1)
-    train(gan, 20000, 50)
+    train(gan, 20000, 50, CustomMetrics(["get_kt"], gan))
 
 
 if __name__ == "__main__":

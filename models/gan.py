@@ -25,6 +25,7 @@ class GAN:
         """
         self.lmbda = lmbda
         self.k_t = K.variable(k_t)
+        self.troubleshoot_params = {"get_kt": 0}
         self.gamma = gamma
         self.norm = norm
 
@@ -33,7 +34,7 @@ class GAN:
         optimiser = opt.adam(lr=params.LEARNING_RATE)
         self.discriminator.compile(loss=self.discriminator_loss,
                                    optimizer=optimiser,
-                                   metrics=['accuracy'])
+                                   metrics=['accuracy', self.discriminator_loss, self.get_kt])
         self.discriminator.trainable = False
         # Connect the generator to the discriminator
         gan_input = Input(shape=params.NOISE_SHAPE)
@@ -46,6 +47,9 @@ class GAN:
         self.combined_model.compile(loss=self.generator_loss,
                                     optimizer=optimiser,
                                     metrics=['accuracy'])
+
+    def get_kt(self,x,y):
+        return self.k_t
 
     def discriminator_loss(self, y_true, y_pred):
         """
@@ -167,8 +171,8 @@ class GAN:
         discrim_loss = (discrim_loss_per_pix.mean())
 
         conv_val = discrim_loss + abs(self.gamma*discrim_loss - gen_loss)
-        print("Epoch %d: [gen_loss: %f] [discrim_loss: %f] [M_global: %f]" %
-              (epoch, gen_loss, discrim_loss, conv_val))
+        print("Epoch %d: [gen_loss: %f] [discrim_loss: %f] [M_global: %f] [k_t: %f]" %
+              (epoch, gen_loss, discrim_loss, conv_val, self.troubleshoot_params["get_kt"]))
         return conv_val
 
 

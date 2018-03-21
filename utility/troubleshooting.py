@@ -2,6 +2,7 @@
 Contains functions to troubleshoot the models.
 """
 from matplotlib import pyplot as plt
+import keras.callbacks as cbks
 
 
 def plot_eval_metrics(history):
@@ -31,3 +32,16 @@ def plot_eval_metrics(history):
     plt.xlabel('epoch')
     plt.legend(['train', 'validation'], loc='upper left')
     plt.show()
+
+
+class CustomMetrics(cbks.Callback):
+
+    def __init__(self, metrics, gan):
+        super(CustomMetrics, self).__init__()
+        self.metrics = metrics
+        self.gan = gan
+
+    def on_epoch_end(self, epoch, logs=None):
+        for k in logs:
+            if k in self.metrics:
+                self.gan.troubleshoot_params[k] = logs[k]
