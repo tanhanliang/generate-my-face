@@ -89,7 +89,7 @@ class GAN:
         gen_loss = self.generator_loss(fake_image, reconstr_fake)
 
         # loss = discrim_loss - self.k_t*gen_loss
-        loss = discrim_loss - gen_loss
+        loss = discrim_loss
         self.update_kt(discrim_loss, gen_loss)
 
         return K.cast(loss, dtype=np.float32)
@@ -255,31 +255,4 @@ def build_autoencoder():
     model.add(layers.ZeroPadding2D(padding=padding_size))
     model.add(layers.Convolution2D(params.CHANNELS, kernel_size, activation="tanh"))
 
-    return model
-
-
-def build_generator():
-    """
-    Builds the generator model, which takes as input random noise and attempts to form an
-    image that would be classified by the discriminator as a han liang.
-
-    :return: A keras Model
-    """
-
-    padding_size = (1, 1)
-    kernel_size = (3, 3)
-    filters = 32
-
-    model = models.Sequential()
-    model.add(layers.Dense(256, activation='elu', input_shape=params.IMG_SHAPE))
-    # model.add(layers.Dense(256, activation='elu'))
-    # model.add(layers.ZeroPadding2D(padding=padding_size))
-    # model.add(layers.Convolution2D(filters, kernel_size=kernel_size, activation='elu'))
-    model.add(layers.ZeroPadding2D(padding=padding_size))
-    model.add(layers.Convolution2D(3, kernel_size=kernel_size, activation='tanh'))
-
-    # optimiser = opt.adam(lr=0.002)
-    # model.compile(loss='binary_crossentropy',
-    #               optimizer=optimiser,
-    #               metrics=['accuracy'])
     return model

@@ -27,7 +27,7 @@ def get_training_data(folder, extension):
 
     shape = (len(data), params.WIDTH, params.HEIGHT, 3)
     data = np.reshape(data, newshape=shape)
-    
+
     return normalise_data(data)
 
 
