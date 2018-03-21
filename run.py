@@ -7,6 +7,8 @@ import models.gan as models
 import numpy as np
 import models.parameters as params
 from PIL import Image
+import math
+import keras.backend as b
 
 
 def train(gan, epochs, save_interval):
@@ -20,14 +22,14 @@ def train(gan, epochs, save_interval):
     :return: Nothing.
     """
 
-    x, y = make.get_training_data("images/", ".jpg")
+    x = make.get_training_data("images/", ".jpg")
 
     # batch_size = int(y.shape[0]/2)
-    batch_size = 10
+    batch_size = 5
 
     for epoch in range(epochs):
         # To reduce the change of overfitting, get random images
-        indices = np.random.randint(0, y.shape[0], batch_size)
+        indices = np.random.randint(0, x.shape[0], batch_size)
         real_images = x[indices]
 
         # Train the discriminator, then the generator
@@ -39,8 +41,7 @@ def train(gan, epochs, save_interval):
         fake_images = gan.generator.predict(noise)
         gan.combined_model.fit(noise, fake_images, batch_size, 1, verbose=0)
 
-        convergence_val = gan.get_convergence_measure(fake_images, real_images)
-        print("Epoch %d: [M_global: %f]" % (epoch, convergence_val))
+        gan.print_convergence_measures(epoch, fake_images, real_images)
 
         if epoch % save_interval == 0:
             save_image(gan.generator, epoch)
@@ -56,7 +57,7 @@ def save_image(generator, epoch):
     """
 
     # The generator model expects a 4-d input, with the first dimension being training examples
-    noise = np.random.normal(0, 1, (1,) + params.NOISE_SHAPE)
+    noise = np.random.uniform(-1, 1, (1,) + params.NOISE_SHAPE)
     gen_img = generator.predict(noise)
     gen_img = gen_img*127.5 + 127.5
     gen_img = gen_img.astype(np.uint8)
