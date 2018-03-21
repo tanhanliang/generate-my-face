@@ -8,7 +8,7 @@ import models.parameters as params
 import numpy as np
 from keras.layers import Input
 from keras.models import Model
-import keras.backend as b
+import keras.backend as K
 
 
 class GAN:
@@ -24,18 +24,17 @@ class GAN:
         :param norm: L1 norm or L2 norm. An integer in {1, 2}
         """
         self.lmbda = lmbda
-        self.k_t = k_t
+        self.k_t = K.variable(k_t)
         self.gamma = gamma
         self.norm = norm
 
         self.generator = build_autoencoder()
         self.discriminator = build_autoencoder()
-        optimiser = opt.adam(lr=0.002)
+        optimiser = opt.adam(lr=params.LEARNING_RATE)
         self.discriminator.compile(loss=self.discriminator_loss,
                                    optimizer=optimiser,
                                    metrics=['accuracy'])
         self.discriminator.trainable = False
-
         # Connect the generator to the discriminator
         gan_input = Input(shape=params.NOISE_SHAPE)
         generated_img = self.generator(gan_input)
@@ -43,7 +42,7 @@ class GAN:
 
         # Build and compile the full GAN
         self.combined_model = Model(gan_input, discrim_out)
-        optimiser = opt.adam(lr=0.002)
+        optimiser = opt.adam(lr=params.LEARNING_RATE)
         self.combined_model.compile(loss=self.generator_loss,
                                     optimizer=optimiser,
                                     metrics=['accuracy'])
@@ -73,19 +72,27 @@ class GAN:
         L_D = discrim_loss - k_t*gen_loss
         L_G = gen_loss
 
-        :param y_true: The image passed to the autoencoder
-        :param y_pred: The image reconstructed by the autoencoder
+        :param y_true: The image passed to the autoencoder.A Tensor
+        :param y_pred: The image reconstructed by the autoencoder. A Tensor
         :return: A float
         """
         # This computes the difference in pixel values between the image passed in and the image
         # reconstructed. The L1 or L2 norm can be applied here ( ie |x-y| or (x-y)^2 )
-        discrim_loss_per_pix = (y_true - y_pred).__abs__().__pow__(self.norm)
-        discrim_loss = b.sum(discrim_loss_per_pix)
-        gen_loss = self.generator_loss(0, 0)
-        loss = discrim_loss - self.k_t*gen_loss
+        discrim_loss_per_pix = K.pow(K.abs(y_pred - y_true), self.norm)
+        discrim_loss = K.mean(discrim_loss_per_pix)
+
+        # Get the generator loss
+        noise = np.random.uniform(-1, 1, (1,) + params.IMG_SHAPE)
+        fake_image = self.generator.predict(noise)
+        reconstr_fake = self.discriminator.predict(fake_image).reshape(params.IMG_SHAPE)
+        fake_image = fake_image.reshape(params.IMG_SHAPE)
+        gen_loss = self.generator_loss(fake_image, reconstr_fake)
+
+        # loss = discrim_loss - self.k_t*gen_loss
+        loss = discrim_loss - gen_loss
         self.update_kt(discrim_loss, gen_loss)
 
-        return b.cast(loss, dtype=np.float32)
+        return K.cast(loss, dtype=np.float32)
 
     def generator_loss(self, y_true, y_pred):
         """
@@ -100,10 +107,10 @@ class GAN:
         :return: A float
         """
 
-        gen_loss_per_pix = (y_pred - y_true).__abs__().__pow__(self.norm)
-        gen_loss = b.sum(gen_loss_per_pix)
+        gen_loss_per_pix = K.pow(K.abs(y_pred - y_true), self.norm)
+        gen_loss = K.mean(gen_loss_per_pix)
 
-        return b.cast(gen_loss, dtype=np.float32)
+        return K.cast(gen_loss, dtype=np.float32)
 
     def update_kt(self, discrim_loss, gen_loss):
         """
@@ -133,14 +140,14 @@ class GAN:
         :param gen_loss:
         :return: Nothing
         """
+        self.k_t = K.update_add(self.k_t, self.lmbda*(self.gamma*discrim_loss - gen_loss))
 
-        self.k_t = self.k_t + self.lmbda*(self.gamma*discrim_loss - gen_loss)
-
-    def get_convergence_measure(self, fake_images, real_images):
+    def print_convergence_measures(self, epoch, fake_images, real_images):
         """
         Computes a measure of convergence for the GAN.
         M_global = discrim_loss + abs(gamma*discrim_loss - gen_loss)
 
+        :param epoch: The training step
         :param fake_images: Some generated images of hanliang. A 4D ndarray.
         (training_examples, width, height, channels)
         :param real_images: Some real images of hanliang. A 4D ndarray.
@@ -148,8 +155,6 @@ class GAN:
         :return: A float
         """
 
-        num_fake = fake_images.shape[0]
-        num_real = real_images.shape[0]
         reconstr_fake_imgs = self.discriminator.predict(fake_images)
         reconstr_real_imgs = self.discriminator.predict(real_images)
 
@@ -158,13 +163,13 @@ class GAN:
         discrim_loss_per_pix = (real_images - reconstr_real_imgs).__abs__().__pow__(self.norm)
 
         # Get the average loss per image
-        # gen_loss = b.sum(gen_loss_per_pix)/num_fake
-        gen_loss = (gen_loss_per_pix.sum())/num_fake
+        gen_loss = (gen_loss_per_pix.mean())
         # discrim_loss = b.sum(discrim_loss_per_pix)/num_real
-        discrim_loss = (discrim_loss_per_pix.sum())/num_real
+        discrim_loss = (discrim_loss_per_pix.mean())
 
         conv_val = discrim_loss + abs(self.gamma*discrim_loss - gen_loss)
-
+        print("Epoch %d: [gen_loss: %f] [discrim_loss: %f] [M_global: %f]" %
+              (epoch, gen_loss, discrim_loss, conv_val))
         return conv_val
 
 
@@ -211,11 +216,24 @@ def build_autoencoder():
     model.add(layers.Convolution2D(filters, kernel_size, activation="elu"))
     model.add(layers.ZeroPadding2D(padding=padding_size))
     model.add(layers.Convolution2D(filters, kernel_size, activation="elu"))
+
+    # Shape is now an eight the width and height of the original
+    model.add(layers.MaxPooling2D(pool_size=(2, 2), strides=(2, 2)))
+    model.add(layers.ZeroPadding2D(padding=padding_size))
+    model.add(layers.Convolution2D(filters, kernel_size, activation="elu"))
+    model.add(layers.ZeroPadding2D(padding=padding_size))
+    model.add(layers.Convolution2D(filters, kernel_size, activation="elu"))
     model.add(layers.Dense(128))
 
     # Start of decoder
     model.add(layers.Dense(128))
+    model.add(layers.ZeroPadding2D(padding=padding_size))
+    model.add(layers.Convolution2D(filters, kernel_size, activation="elu"))
+    model.add(layers.ZeroPadding2D(padding=padding_size))
+    model.add(layers.Convolution2D(filters, kernel_size, activation="elu"))
+
     # Shape is a quarter the width and height of the original
+    model.add(layers.UpSampling2D(size=(2, 2)))
     model.add(layers.ZeroPadding2D(padding=padding_size))
     model.add(layers.Convolution2D(filters, kernel_size, activation="elu"))
     model.add(layers.ZeroPadding2D(padding=padding_size))
@@ -235,34 +253,33 @@ def build_autoencoder():
     model.add(layers.ZeroPadding2D(padding=padding_size))
     model.add(layers.Convolution2D(filters, kernel_size, activation="elu"))
     model.add(layers.ZeroPadding2D(padding=padding_size))
-    model.add(layers.Convolution2D(params.CHANNELS, kernel_size, activation="elu"))
+    model.add(layers.Convolution2D(params.CHANNELS, kernel_size, activation="tanh"))
 
     return model
 
 
-# def build_generator():
-#     """
-#     Builds the generator model, which takes as input random noise and attempts to form an
-#     image that would be classified by the discriminator as a han liang.
-#
-#     :return: A keras Model
-#     """
-#
-#     model = models.Sequential()
-#     model.add(layers.Dense(128, input_shape=params.NOISE_SHAPE))
-#     model.add(layers.LeakyReLU(alpha=0.2))
-#     model.add(layers.BatchNormalization(momentum=0.8))
-#     model.add(layers.Dense(256))
-#     model.add(layers.LeakyReLU(alpha=0.2))
-#     model.add(layers.BatchNormalization(momentum=0.8))
-#     model.add(layers.Dense(256))
-#     model.add(layers.LeakyReLU(alpha=0.2))
-#     model.add(layers.BatchNormalization(momentum=0.8))
-#     model.add(layers.Dense(np.prod(params.IMG_SHAPE), activation='tanh'))
-#     model.add(layers.Reshape(params.IMG_SHAPE))
-#
-#     # optimiser = opt.adam(lr=0.002)
-#     # model.compile(loss='binary_crossentropy',
-#     #               optimizer=optimiser,
-#     #               metrics=['accuracy'])
-#     return model
+def build_generator():
+    """
+    Builds the generator model, which takes as input random noise and attempts to form an
+    image that would be classified by the discriminator as a han liang.
+
+    :return: A keras Model
+    """
+
+    padding_size = (1, 1)
+    kernel_size = (3, 3)
+    filters = 32
+
+    model = models.Sequential()
+    model.add(layers.Dense(256, activation='elu', input_shape=params.IMG_SHAPE))
+    # model.add(layers.Dense(256, activation='elu'))
+    # model.add(layers.ZeroPadding2D(padding=padding_size))
+    # model.add(layers.Convolution2D(filters, kernel_size=kernel_size, activation='elu'))
+    model.add(layers.ZeroPadding2D(padding=padding_size))
+    model.add(layers.Convolution2D(3, kernel_size=kernel_size, activation='tanh'))
+
+    # optimiser = opt.adam(lr=0.002)
+    # model.compile(loss='binary_crossentropy',
+    #               optimizer=optimiser,
+    #               metrics=['accuracy'])
+    return model
