@@ -17,7 +17,7 @@ class GAN:
         Builds and wires up the models.
         See https://blog.heuritech.com/2017/04/11/began-state-of-the-art-generation-of-faces-with-generative-adversarial-networks/
 
-        :param lmbda: The learning rate for k_t
+        :param lmbda: The learning rate for get_kt
         :param k_t: The adaptive term that balances the losses of the discriminator and
         generator automatically
         :param gamma: The tradeoff between image diversity and quality
@@ -25,17 +25,27 @@ class GAN:
         """
         self.lmbda = lmbda
         self.k_t = K.variable(k_t)
-        self.troubleshoot_params = {"get_kt": 0}
+        self.r_reconst_loss = None
+        self.gen_loss = None
+        self.discrim_loss = None
         self.gamma = gamma
         self.norm = norm
 
         self.generator = build_autoencoder()
+        g_optimiser = opt.adam(lr=params.LEARNING_RATE)
+        self.generator.compile(loss=self.generator_loss,
+                                    optimizer=g_optimiser,
+                                    metrics=['accuracy'])
         self.discriminator = build_autoencoder()
-        optimiser = opt.adam(lr=params.LEARNING_RATE)
+        d_optimiser = opt.adam(lr=params.LEARNING_RATE)
         self.discriminator.compile(loss=self.discriminator_loss,
-                                   optimizer=optimiser,
-                                   metrics=['accuracy', self.discriminator_loss, self.get_kt])
+                                   optimizer=d_optimiser,
+                                   metrics=['accuracy',
+                                            self.get_kt,
+                                            self.get_discrim_loss,
+                                            self.get_r_reconstr_loss])
         self.discriminator.trainable = False
+
         # Connect the generator to the discriminator
         gan_input = Input(shape=params.NOISE_SHAPE)
         generated_img = self.generator(gan_input)
@@ -43,13 +53,28 @@ class GAN:
 
         # Build and compile the full GAN
         self.combined_model = Model(gan_input, discrim_out)
-        optimiser = opt.adam(lr=params.LEARNING_RATE)
+        g_optimiser = opt.adam(lr=params.LEARNING_RATE)
         self.combined_model.compile(loss=self.generator_loss,
-                                    optimizer=optimiser,
-                                    metrics=['accuracy'])
+                                    optimizer=g_optimiser,
+                                    metrics=['accuracy',
+                                             self.get_gen_loss])
 
-    def get_kt(self,x,y):
+    # For the callbacks
+    def get_kt(self, y_true, y_pred):
+        # y_true and y_pred are 4d tensors
         return self.k_t
+
+    def get_gen_loss(self, y_true, y_pred):
+        # y_true and y_pred are 4d tensors
+        return self.gen_loss
+
+    def get_discrim_loss(self, y_true, y_pred):
+        # y_true and y_pred are 4d tensors
+        return self.discrim_loss
+
+    def get_r_reconstr_loss(self, y_true, y_pred):
+        # y_true and y_pred are 4d tensors
+        return self.r_reconst_loss
 
     def discriminator_loss(self, y_true, y_pred):
         """
@@ -73,29 +98,36 @@ class GAN:
 
         See the blog post link above for the full details.
 
-        L_D = discrim_loss - k_t*gen_loss
-        L_G = gen_loss
+        L_D = real_reconstr_loss - get_kt*get_gen_loss
+        L_G = get_gen_loss
 
-        :param y_true: The image passed to the autoencoder.A Tensor
-        :param y_pred: The image reconstructed by the autoencoder. A Tensor
+        :param y_true: The images passed to the autoencoder.A Tensor
+        :param y_pred: The images reconstructed by the autoencoder. A Tensor
         :return: A float
         """
-        # This computes the difference in pixel values between the image passed in and the image
-        # reconstructed. The L1 or L2 norm can be applied here ( ie |x-y| or (x-y)^2 )
+        if self.gen_loss is None:
+            raise ValueError("gen_loss is None and has not been initialised.")
+
+        real_reconst_loss = self.get_real_reconstr_loss(y_true, y_pred)
+
+        # # Now calculate the discriminator loss
+        self.discrim_loss = real_reconst_loss - self.k_t*self.gen_loss
+        self.update_kt(real_reconst_loss, self.gen_loss)
+
+        return K.cast(self.discrim_loss, dtype=np.float32)
+
+    def get_real_reconstr_loss(self, y_true, y_pred):
+        """
+        Gets the reconstruction loss for real images in the discriminator
+
+        :param y_true: A tensor
+        :param y_pred: A tensor
+        :return: A tensor
+        """
+
         discrim_loss_per_pix = K.pow(K.abs(y_pred - y_true), self.norm)
-        discrim_loss = K.mean(discrim_loss_per_pix)
-
-        # Get the generator loss
-        noise = np.random.uniform(-1, 1, (1,) + params.IMG_SHAPE)
-        fake_image = self.generator.predict(noise)
-        reconstr_fake = self.discriminator.predict(fake_image).reshape(params.IMG_SHAPE)
-        fake_image = fake_image.reshape(params.IMG_SHAPE)
-        gen_loss = self.generator_loss(fake_image, reconstr_fake)
-
-        loss = discrim_loss - self.k_t*gen_loss
-        self.update_kt(discrim_loss, gen_loss)
-
-        return K.cast(loss, dtype=np.float32)
+        self.r_reconst_loss = K.mean(discrim_loss_per_pix)
+        return self.r_reconst_loss
 
     def generator_loss(self, y_true, y_pred):
         """
@@ -105,75 +137,61 @@ class GAN:
         Alternative: When training the generator, pass the input noise to y_true also,
         then use it here. It will obfuscate the code more though...
 
-        :param y_true: The fake image generated by the generator
-        :param y_pred: The image reconstructed by discriminator.
+        :param y_true: The fake images generated by the generator
+        :param y_pred: The images reconstructed by discriminator.
         :return: A float
         """
-
         gen_loss_per_pix = K.pow(K.abs(y_pred - y_true), self.norm)
-        gen_loss = K.mean(gen_loss_per_pix)
+        self.gen_loss = K.mean(gen_loss_per_pix)
+        return self.gen_loss
 
-        return K.cast(gen_loss, dtype=np.float32)
-
-    def update_kt(self, discrim_loss, gen_loss):
+    def update_kt(self, real_reconst_loss, gen_loss):
         """
-        Update rule for k_t.
+        Update rule for get_kt.
 
-        k_t+1 = k_t + lmbda*(gamma*discrim_loss - gen_loss)
+        get_kt+1 = get_kt + lmbda*(gamma*get_discrim_loss - get_gen_loss)
 
-        In a perfect world, gamma*discrim_loss - gen_loss == 0. This represents the stable point,
-        which the adaptive parameter k_t strives to reach. Let me attempt an intuitive explanation
+        In a perfect world, gamma*get_discrim_loss - get_gen_loss == 0. This represents the stable point,
+        which the adaptive parameter get_kt strives to reach. Let me attempt an intuitive explanation
         to test my understanding of this. To recap, the losses for The discriminator and generator
         are:
 
-        L_D = discrim_loss - k_t*gen_loss
-        L_G = gen_loss
+        L_D = get_discrim_loss - get_kt*get_gen_loss
+        L_G = get_gen_loss
 
         If:
 
-        (1) gen_loss << discrim_loss: generator is getting too good at producing fake images, or
+        (1) get_gen_loss << get_discrim_loss: generator is getting too good at producing fake images, or
             discriminator is getting lousy at its reconstruction task.
-            k_t increases, incentive for discriminator to get better at its discrimination task
-            increases (incentive for discriminator to increase gen_loss)
-        (2) gen_loss >> discrim_loss: discriminator is getting too good at its encoding task, or
+            get_kt increases, incentive for discriminator to get better at its discrimination task
+            increases (incentive for discriminator to increase get_gen_loss)
+        (2) get_gen_loss >> get_discrim_loss: discriminator is getting too good at its encoding task, or
             generator is too lousy at producing fake images.
-            k_t decreases, causing a penalty on L_D which helps to prevent it from getting lower.
+            get_kt decreases, causing a penalty on L_D which helps to prevent it from getting lower.
 
-        :param discrim_loss:
-        :param gen_loss:
+        :param real_reconst_loss: The reconstruction loss when passing a real image to the discriminator
+        :param gen_loss: The reconstruction loss when passing a fake image to the generator
         :return: Nothing
         """
-        self.k_t = K.update_add(self.k_t, self.lmbda*(self.gamma*discrim_loss - gen_loss))
+        self.k_t = K.update_add(self.k_t, self.lmbda * (self.gamma * real_reconst_loss - gen_loss))
+        return self.k_t
 
-    def print_convergence_measures(self, epoch, fake_images, real_images):
+    def print_convergence_measures(self, epoch, callback):
         """
         Computes a measure of convergence for the GAN.
-        M_global = discrim_loss + abs(gamma*discrim_loss - gen_loss)
+        M_global = get_discrim_loss + abs(gamma*get_discrim_loss - get_gen_loss)
 
         :param epoch: The training step
-        :param fake_images: Some generated images of hanliang. A 4D ndarray.
-        (training_examples, width, height, channels)
-        :param real_images: Some real images of hanliang. A 4D ndarray.
-        (training_examples, width, height, channels)
-        :return: A float
+        :return: Nothing
         """
+        gen_loss = callback.metrics["get_gen_loss"]
+        discrim_loss = callback.metrics["get_discrim_loss"]
+        real_reconstr_loss = callback.metrics["get_r_reconstr_loss"]
+        kt = callback.metrics["get_kt"]
+        # conv_val = reconst_loss + abs(self.gamma*reconst_loss - get_gen_loss)
 
-        reconstr_fake_imgs = self.discriminator.predict(fake_images)
-        reconstr_real_imgs = self.discriminator.predict(real_images)
-
-        # losses computed per pixel in every image
-        gen_loss_per_pix = (fake_images - reconstr_fake_imgs).__abs__().__pow__(self.norm)
-        discrim_loss_per_pix = (real_images - reconstr_real_imgs).__abs__().__pow__(self.norm)
-
-        # Get the average loss per image
-        gen_loss = (gen_loss_per_pix.mean())
-        # discrim_loss = b.sum(discrim_loss_per_pix)/num_real
-        discrim_loss = (discrim_loss_per_pix.mean())
-
-        conv_val = discrim_loss + abs(self.gamma*discrim_loss - gen_loss)
-        print("Epoch %d: [gen_loss: %f] [discrim_loss: %f] [M_global: %f] [k_t: %f]" %
-              (epoch, gen_loss, discrim_loss, conv_val, self.troubleshoot_params["get_kt"]))
-        return conv_val
+        print("Epoch %d: [get_gen_loss: %f] [get_discrim_loss: %f, reconst_loss: %f] [M_global: f] [get_kt: %f]" %
+              (epoch, gen_loss, discrim_loss, real_reconstr_loss, kt))
 
 
 def build_autoencoder():

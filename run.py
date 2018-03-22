@@ -10,7 +10,7 @@ from PIL import Image
 from utility.troubleshooting import CustomMetrics
 
 
-def train(gan, epochs, save_interval, callbacks=None):
+def train(gan, epochs, save_interval, callback=None):
     """
     Runs the GAN.
 
@@ -18,7 +18,7 @@ def train(gan, epochs, save_interval, callbacks=None):
     :param epochs: Number of 'back and forth' iterations of training the discriminator,
     then training the generator.
     :param save_interval: The interval at which we save images.
-    :param callbacks: A keras callback for troubleshooting
+    :param callback: A keras callback for troubleshooting
     :return: Nothing.
     """
 
@@ -32,16 +32,16 @@ def train(gan, epochs, save_interval, callbacks=None):
         indices = np.random.randint(0, x.shape[0], batch_size)
         real_images = x[indices]
 
-        # Train the discriminator, then the generator
-        gan.discriminator.fit(real_images, real_images, batch_size, 1, verbose=0, callbacks=[callbacks])
+        # Train the discriminator and generator. Due to the nature of the loss calculations, where
+        # the stored value of generator loss is used, even though these two fit statements should
+        # be the same as if they were run simultaneously
 
         noise = np.random.uniform(-1, 1, (batch_size,) + params.NOISE_SHAPE)
-        # First generate fake images. Since the discriminator is an autoencoder, the inputs to it
-        # are also its targets.
         fake_images = gan.generator.predict(noise)
-        gan.combined_model.fit(noise, fake_images, batch_size, 1, verbose=0, callbacks=[callbacks])
+        gan.combined_model.fit(noise, fake_images, batch_size, 1, verbose=0, callbacks=[callback])
+        gan.discriminator.fit(real_images, real_images, batch_size, 1, verbose=0, callbacks=[callback])
 
-        gan.print_convergence_measures(epoch, fake_images, real_images)
+        gan.print_convergence_measures(epoch, callback)
 
         if epoch % save_interval == 0:
             save_image(gan.generator, epoch)
@@ -71,7 +71,8 @@ def save_image(generator, epoch):
 
 def main():
     gan = models.GAN(0.001, 0, 0.5, 1)
-    train(gan, 20000, 50, CustomMetrics(["get_kt"], gan))
+    metrics = ["get_kt", "get_gen_loss", "get_r_reconstr_loss", "get_discrim_loss"]
+    train(gan, 20000, 50, CustomMetrics(metrics))
 
 
 if __name__ == "__main__":

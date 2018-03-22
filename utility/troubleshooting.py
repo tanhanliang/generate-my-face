@@ -36,12 +36,14 @@ def plot_eval_metrics(history):
 
 class CustomMetrics(cbks.Callback):
 
-    def __init__(self, metrics, gan):
+    def __init__(self, metrics):
         super(CustomMetrics, self).__init__()
-        self.metrics = metrics
-        self.gan = gan
+        self.metrics = {}
+
+        for metric in metrics:
+            self.metrics[metric] = -1
 
     def on_epoch_end(self, epoch, logs=None):
         for k in logs:
             if k in self.metrics:
-                self.gan.troubleshoot_params[k] = logs[k]
+                self.metrics[k] = logs[k]
